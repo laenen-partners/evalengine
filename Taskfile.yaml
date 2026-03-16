@@ -1,0 +1,55 @@
+version: "3"
+
+tasks:
+  setup:
+    desc: Download and verify Go module dependencies
+    cmds:
+      - go mod download
+      - go mod verify
+
+  build:
+    desc: Build the Go project
+    cmds:
+      - go build ./...
+
+  generate:
+    desc: Run generations
+    cmds:
+      - task: generate:proto
+
+  generate:proto:
+    desc: Run proto generate
+    cmds:
+      - buf generate
+
+  format:
+    desc: Format Go code with gofmt
+    cmds:
+      - gofumpt -l -w .
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  test:ci:
+    desc: Run tests and output JUnit XML to reports/junit.xml
+    cmds:
+      - mkdir -p reports
+      - gotestsum --junitfile reports/junit.xml ./...
+
+  vuln:ci:
+    desc: Run osv-scanner vulnerability scan
+    cmds:
+      - osv-scanner scan -r .
+
+  ci:
+    desc: Run the full CI pipeline
+    cmds:
+      - task setup
+      - task generate
+      - task format
+      - task lint
+      - task build
+      - task test:ci
+      - task vuln:ci

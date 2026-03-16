@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package test.v1;
+
+message TestEvaluatorContainer {
+  int64 score = 1;
+  NestedObject nested_object = 2;
+}
+
+message NestedObject {
+  bool is_active = 1;
+}
