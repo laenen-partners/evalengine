@@ -432,4 +432,3 @@ func TestInvalidYAMLRejected(t *testing.T) {
 		t.Fatal("expected error for invalid YAML, got nil")
 	}
 }
-
