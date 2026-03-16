@@ -19,5 +19,6 @@ type Evaluator interface {
 	Reads() []FieldRef
 	Writes() FieldRef
 	CacheTTL() time.Duration
+	ResolutionWorkflow() string
 	Evaluate(activation map[string]any) Result
 }
