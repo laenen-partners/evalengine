@@ -1,13 +1,13 @@
 package evalengine
 
 // Status represents the logical outcome of evaluating all results.
-type Status int
+type Status string
 
 const (
-	StatusAllPassed      Status = iota // every evaluation passed
-	StatusWorkflowActive               // a resolution workflow is running
-	StatusActionRequired               // a failing eval needs manual action
-	StatusBlocked                      // a failing eval's dependencies aren't met
+	StatusAllPassed      Status = "StatusAllPassed"      // every evaluation passed
+	StatusWorkflowActive Status = "StatusWorkflowActive" // a resolution workflow is running
+	StatusActionRequired Status = "StatusActionRequired" // a failing eval needs manual action
+	StatusBlocked        Status = "StatusBlocked"        // a failing eval's dependencies aren't met
 )
 
 // DeriveStatus determines the overall status from evaluation results.

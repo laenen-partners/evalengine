@@ -28,10 +28,10 @@ type EvalDefinition struct {
 	Writes             FieldRef   `yaml:"writes"`
 	ResolutionWorkflow string     `yaml:"resolution_workflow"`
 	Resolution         string     `yaml:"resolution"`
-	Severity           string     `yaml:"severity"`
-	Category           string     `yaml:"category"`
-	CacheTTL           string     `yaml:"cache_ttl"`
-	ParsedCacheTTL     time.Duration
+	Severity           string        `yaml:"severity"`
+	Category           string        `yaml:"category"`
+	CacheTTL           string        `yaml:"cache_ttl"`
+	CacheTTLDuration   time.Duration `yaml:"-"`
 }
 
 // EvalConfig is the top-level YAML structure.
@@ -75,6 +75,7 @@ func (d *EvalDefinition) parseCacheTTL() error {
 	if err != nil {
 		return fmt.Errorf("eval %q: invalid cache_ttl %q: %w", d.Name, d.CacheTTL, err)
 	}
-	d.ParsedCacheTTL = dur
+	d.CacheTTLDuration = dur
 	return nil
 }
+

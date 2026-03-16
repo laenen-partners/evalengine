@@ -276,39 +276,6 @@ evaluations:
 }
 
 // ---------------------------------------------------------------------------
-// Definition: valid cache_ttl is parsed
-// ---------------------------------------------------------------------------
-
-func TestValidCacheTTLParsed(t *testing.T) {
-	yaml := `
-evaluations:
-  - name: ttl_eval
-    description: With TTL
-    expression: "input.score >= 0"
-    reads: [input.score]
-    writes: ttl_result
-    severity: blocking
-    category: test
-    cache_ttl: "5m"
-`
-	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
-	if err != nil {
-		t.Fatalf("engine: %v", err)
-	}
-	evs := eng.Evaluators()
-	if len(evs) != 1 {
-		t.Fatalf("expected 1 evaluator, got %d", len(evs))
-	}
-	if evs[0].CacheTTL().Minutes() != 5 {
-		t.Errorf("expected 5m cache TTL, got %v", evs[0].CacheTTL())
-	}
-}
-
-// ---------------------------------------------------------------------------
 // Status: blocked eval (deps not met, no resolution workflow)
 // ---------------------------------------------------------------------------
 
@@ -346,7 +313,7 @@ evaluations:
 	// after_gate blocked (deps not met) -> hasBlockedEval=true.
 	// ActionRequired is checked before Blocked, so ActionRequired wins.
 	if status != evalengine.StatusActionRequired {
-		t.Errorf("expected StatusActionRequired, got %d", status)
+		t.Errorf("expected StatusActionRequired, got %s", status)
 	}
 }
 

@@ -16,7 +16,7 @@ func TestDeriveStatusActive(t *testing.T) {
 		{Name: "eligible", Passed: true},
 	}
 	if s := eng.DeriveStatus(results); s != evalengine.StatusAllPassed {
-		t.Errorf("expected StatusAllPassed, got %d", s)
+		t.Errorf("expected StatusAllPassed, got %s", s)
 	}
 }
 
@@ -31,7 +31,7 @@ func TestDeriveStatusActionRequired(t *testing.T) {
 	s := eng.DeriveStatus(results)
 	// score_sufficient fails with no workflow → ActionRequired (or Blocked for eligible)
 	if s != evalengine.StatusActionRequired && s != evalengine.StatusBlocked {
-		t.Errorf("expected StatusActionRequired or StatusBlocked, got %d", s)
+		t.Errorf("expected StatusActionRequired or StatusBlocked, got %s", s)
 	}
 }
 
@@ -44,6 +44,6 @@ func TestDeriveStatusOnboardingInProgress(t *testing.T) {
 	}
 	s := eng.DeriveStatus(results)
 	if s != evalengine.StatusWorkflowActive {
-		t.Errorf("expected StatusWorkflowActive, got %d", s)
+		t.Errorf("expected StatusWorkflowActive, got %s", s)
 	}
 }

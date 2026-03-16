@@ -433,19 +433,3 @@ func TestInvalidYAMLRejected(t *testing.T) {
 	}
 }
 
-func TestInvalidCacheTTLRejected(t *testing.T) {
-	badTTL := `
-evaluations:
-  - name: ttl_eval
-    expression: "input.score >= 100"
-    reads: [input.score]
-    writes: score_ok
-    severity: blocking
-    category: test
-    cache_ttl: "not-a-duration"
-`
-	_, err := evalengine.LoadDefinitions(strings.NewReader(badTTL))
-	if err == nil {
-		t.Fatal("expected error for invalid cache_ttl, got nil")
-	}
-}

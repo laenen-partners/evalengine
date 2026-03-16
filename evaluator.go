@@ -1,8 +1,6 @@
 package evalengine
 
-import (
-	"time"
-)
+import "time"
 
 // Result represents the outcome of a single evaluator run.
 type Result struct {
@@ -21,6 +19,5 @@ type Evaluator interface {
 	Reads() []FieldRef
 	Writes() FieldRef
 	CacheTTL() time.Duration
-	ResolutionWorkflow() string
 	Evaluate(activation map[string]any) Result
 }

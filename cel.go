@@ -31,11 +31,10 @@ func NewCELEvaluator(env *cel.Env, def EvalDefinition) (*CELEvaluator, error) {
 
 // Name returns the writes field — the canonical identifier used as the result
 // key, CEL variable name for downstream evaluators, and execution order node.
-func (e *CELEvaluator) Name() string               { return string(e.def.Writes) }
-func (e *CELEvaluator) Reads() []FieldRef          { return e.def.Reads }
-func (e *CELEvaluator) Writes() FieldRef           { return e.def.Writes }
-func (e *CELEvaluator) CacheTTL() time.Duration    { return e.def.ParsedCacheTTL }
-func (e *CELEvaluator) ResolutionWorkflow() string { return e.def.ResolutionWorkflow }
+func (e *CELEvaluator) Name() string            { return string(e.def.Writes) }
+func (e *CELEvaluator) Reads() []FieldRef       { return e.def.Reads }
+func (e *CELEvaluator) Writes() FieldRef        { return e.def.Writes }
+func (e *CELEvaluator) CacheTTL() time.Duration { return e.def.CacheTTLDuration }
 
 func (e *CELEvaluator) Evaluate(activation map[string]any) Result {
 	out, _, err := e.program.Eval(activation)
