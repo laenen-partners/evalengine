@@ -10,12 +10,12 @@ on:
 
 jobs:
   ci:
-    uses: leetm4n/gh-action-scripts/.github/workflows/ci.yaml@main
+    uses: laenen-partners/gh-action-scripts/.github/workflows/ci.yaml@main
     with:
       upload-artifacts: true
 
   release:
     needs: ci
-    uses: leetm4n/gh-action-scripts/.github/workflows/release.yaml@main
+    uses: laenen-partners/gh-action-scripts/.github/workflows/release.yaml@main
     permissions:
       contents: write

@@ -11,4 +11,4 @@ permissions:
 
 jobs:
   upgrade:
-    uses: leetm4n/gh-action-scripts/.github/workflows/upgrade-tools.yaml@main
+    uses: laenen-partners/gh-action-scripts/.github/workflows/upgrade-tools.yaml@main
