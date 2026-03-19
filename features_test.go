@@ -665,6 +665,412 @@ func TestFingerprintNestedFieldStable(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Repeated (array) field support
+// ---------------------------------------------------------------------------
+
+func TestArrayExistsPass(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: has_adult_party
+    expression: 'input.parties.exists(p, p.role == 1 && p.age >= 18)'
+    writes: has_adult
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	input := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{
+			{Name: "Alice", Role: 1, Age: 25},
+		},
+	}
+	results := eng.RunMap(input)
+	if !results["has_adult"].Passed {
+		t.Error("should pass when matching party exists")
+	}
+}
+
+func TestArrayExistsFail(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: has_adult_party
+    expression: 'input.parties.exists(p, p.role == 1 && p.age >= 18)'
+    writes: has_adult
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	input := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{
+			{Name: "Bob", Role: 1, Age: 16},
+		},
+	}
+	results := eng.RunMap(input)
+	if results["has_adult"].Passed {
+		t.Error("should fail when no matching party exists")
+	}
+}
+
+func TestArrayEmptyFails(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: has_adult_party
+    expression: 'input.parties.exists(p, p.role == 1)'
+    writes: has_adult
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	input := &testv1.TestEvaluatorContainer{}
+	results := eng.RunMap(input)
+	if results["has_adult"].Passed {
+		t.Error("should fail when parties list is empty")
+	}
+}
+
+func TestArraySizeCheck(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: has_parties
+    expression: 'size(input.parties) > 0'
+    writes: has_parties
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	empty := eng.RunMap(&testv1.TestEvaluatorContainer{})
+	if empty["has_parties"].Passed {
+		t.Error("should fail with no parties")
+	}
+
+	withParties := eng.RunMap(&testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice"}},
+	})
+	if !withParties["has_parties"].Passed {
+		t.Error("should pass with parties")
+	}
+}
+
+func TestArrayAllMacro(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: all_adults
+    expression: 'input.parties.all(p, p.age >= 18)'
+    writes: all_adults
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	// All adults — pass.
+	allAdults := eng.RunMap(&testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{
+			{Name: "Alice", Age: 25},
+			{Name: "Bob", Age: 30},
+		},
+	})
+	if !allAdults["all_adults"].Passed {
+		t.Error("should pass when all parties are adults")
+	}
+
+	// One minor — fail.
+	oneMinor := eng.RunMap(&testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{
+			{Name: "Alice", Age: 25},
+			{Name: "Charlie", Age: 16},
+		},
+	})
+	if oneMinor["all_adults"].Passed {
+		t.Error("should fail when one party is underage")
+	}
+
+	// Empty list — all() on empty returns true (CEL semantics).
+	emptyResult := eng.RunMap(&testv1.TestEvaluatorContainer{})
+	if !emptyResult["all_adults"].Passed {
+		t.Error("all() on empty list returns true in CEL")
+	}
+}
+
+func TestArrayAutoDerivesInputReads(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: party_check
+    expression: 'input.parties.exists(p, p.role == 1)'
+    writes: has_role_one
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	// reads should be auto-derived as [input.parties].
+	for _, ev := range eng.Evaluators() {
+		if ev.Name() == "has_role_one" {
+			reads := ev.Reads()
+			if len(reads) != 1 || string(reads[0]) != "input.parties" {
+				t.Errorf("expected auto-derived reads [input.parties], got %v", reads)
+			}
+		}
+	}
+
+	// InputFields should return [input.parties].
+	fields := eng.InputFields("has_role_one")
+	if len(fields) != 1 || fields[0] != "input.parties" {
+		t.Errorf("expected InputFields [input.parties], got %v", fields)
+	}
+}
+
+func TestArrayMixedWithScalarAutoDerivesAll(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: mixed_check
+    expression: 'input.score >= 100 && input.parties.exists(p, p.role == 1)'
+    writes: mixed
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	fields := eng.InputFields("mixed")
+	fieldSet := make(map[string]bool)
+	for _, f := range fields {
+		fieldSet[f] = true
+	}
+	if !fieldSet["input.score"] || !fieldSet["input.parties"] {
+		t.Errorf("expected InputFields to contain input.score and input.parties, got %v", fields)
+	}
+}
+
+func TestArrayFingerprintChangesWhenElementAdded(t *testing.T) {
+	reads := []evalengine.FieldRef{"input.parties"}
+
+	msg1 := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice", Role: 1, Age: 25}},
+	}
+	msg2 := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{
+			{Name: "Alice", Role: 1, Age: 25},
+			{Name: "Bob", Role: 2, Age: 30},
+		},
+	}
+
+	fp1 := evalengine.ComputeFingerprint(reads, msg1)
+	fp2 := evalengine.ComputeFingerprint(reads, msg2)
+
+	if fp1 == "" {
+		t.Error("fingerprint for array field should not be empty")
+	}
+	if fp1 == fp2 {
+		t.Error("fingerprint should change when array element is added")
+	}
+}
+
+func TestArrayFingerprintChangesWhenElementModified(t *testing.T) {
+	reads := []evalengine.FieldRef{"input.parties"}
+
+	msg1 := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice", Role: 1, Age: 25}},
+	}
+	msg2 := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice", Role: 1, Age: 30}},
+	}
+
+	fp1 := evalengine.ComputeFingerprint(reads, msg1)
+	fp2 := evalengine.ComputeFingerprint(reads, msg2)
+
+	if fp1 == fp2 {
+		t.Error("fingerprint should change when array element field is modified")
+	}
+}
+
+func TestArrayFingerprintStableForSameData(t *testing.T) {
+	reads := []evalengine.FieldRef{"input.parties"}
+
+	msg := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{
+			{Name: "Alice", Role: 1, Age: 25},
+			{Name: "Bob", Role: 2, Age: 30},
+		},
+	}
+
+	fp1 := evalengine.ComputeFingerprint(reads, msg)
+	fp2 := evalengine.ComputeFingerprint(reads, msg)
+
+	if fp1 != fp2 {
+		t.Errorf("fingerprint should be stable: %s != %s", fp1, fp2)
+	}
+}
+
+func TestArrayFingerprintEmptyVsPopulated(t *testing.T) {
+	reads := []evalengine.FieldRef{"input.parties"}
+
+	empty := &testv1.TestEvaluatorContainer{}
+	populated := &testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice"}},
+	}
+
+	fpEmpty := evalengine.ComputeFingerprint(reads, empty)
+	fpPopulated := evalengine.ComputeFingerprint(reads, populated)
+
+	if fpEmpty == fpPopulated {
+		t.Error("fingerprint should differ between empty and populated array")
+	}
+}
+
+func TestArrayWithPreconditions(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: adult_party_check
+    preconditions:
+      - expression: 'size(input.parties) > 0'
+        description: "At least one party must be provided"
+    expression: 'input.parties.exists(p, p.age >= 18)'
+    writes: has_adult
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	// Empty parties → pending (precondition fails).
+	empty := eng.RunMap(&testv1.TestEvaluatorContainer{})
+	r := empty["has_adult"]
+	if r.Passed {
+		t.Error("should not pass with empty parties")
+	}
+	if !r.Pending {
+		t.Error("should be pending when precondition fails")
+	}
+	if len(r.PendingPreconditions) != 1 || r.PendingPreconditions[0] != "At least one party must be provided" {
+		t.Errorf("expected precondition description, got %v", r.PendingPreconditions)
+	}
+
+	// Parties present but all underage → fails (not pending).
+	underage := eng.RunMap(&testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Charlie", Age: 16}},
+	})
+	r2 := underage["has_adult"]
+	if r2.Passed {
+		t.Error("should fail with underage party")
+	}
+	if r2.Pending {
+		t.Error("should NOT be pending when precondition passes but expression fails")
+	}
+
+	// Parties present with adult → passes.
+	adult := eng.RunMap(&testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice", Age: 25}},
+	})
+	if !adult["has_adult"].Passed {
+		t.Error("should pass with adult party")
+	}
+}
+
+func TestArrayWithDependencyGraph(t *testing.T) {
+	yaml := `
+evaluations:
+  - name: has_parties_eval
+    expression: 'size(input.parties) > 0'
+    writes: has_parties
+    severity: blocking
+    category: parties
+
+  - name: adult_check_eval
+    expression: 'has_parties == true && input.parties.all(p, p.age >= 18)'
+    writes: all_adults
+    severity: blocking
+    category: parties
+`
+	cfg, err := evalengine.LoadDefinitions(strings.NewReader(yaml))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	eng, err := evalengine.NewEngine(cfg, &testv1.TestEvaluatorContainer{})
+	if err != nil {
+		t.Fatalf("engine: %v", err)
+	}
+
+	// Verify auto-derived dependency: all_adults depends on has_parties.
+	blocks := eng.Graph().Blocks("has_parties")
+	if len(blocks) != 1 || blocks[0] != "all_adults" {
+		t.Errorf("expected has_parties to block [all_adults], got %v", blocks)
+	}
+
+	// Empty parties → has_parties fails → all_adults blocked.
+	empty := eng.RunMap(&testv1.TestEvaluatorContainer{})
+	if empty["has_parties"].Passed {
+		t.Error("has_parties should fail with empty list")
+	}
+	if empty["all_adults"].Passed {
+		t.Error("all_adults should be blocked when has_parties fails")
+	}
+
+	// One adult → both pass.
+	adult := eng.RunMap(&testv1.TestEvaluatorContainer{
+		Parties: []*testv1.Party{{Name: "Alice", Age: 25}},
+	})
+	if !adult["has_parties"].Passed {
+		t.Error("has_parties should pass")
+	}
+	if !adult["all_adults"].Passed {
+		t.Error("all_adults should pass when all parties are adults")
+	}
+}
+
 func TestPreconditionCompileError(t *testing.T) {
 	yaml := `
 evaluations:

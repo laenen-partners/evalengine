@@ -5,8 +5,15 @@ package test.v1;
 message TestEvaluatorContainer {
   int64 score = 1;
   NestedObject nested_object = 2;
+  repeated Party parties = 3;
 }
 
 message NestedObject {
   bool is_active = 1;
+}
+
+message Party {
+  string name = 1;
+  int64 role = 2;
+  int64 age = 3;
 }

@@ -25,6 +25,7 @@ type TestEvaluatorContainer struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Score         int64                  `protobuf:"varint,1,opt,name=score,proto3" json:"score,omitempty"`
 	NestedObject  *NestedObject          `protobuf:"bytes,2,opt,name=nested_object,json=nestedObject,proto3" json:"nested_object,omitempty"`
+	Parties       []*Party               `protobuf:"bytes,3,rep,name=parties,proto3" json:"parties,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,6 +74,13 @@ func (x *TestEvaluatorContainer) GetNestedObject() *NestedObject {
 	return nil
 }
 
+func (x *TestEvaluatorContainer) GetParties() []*Party {
+	if x != nil {
+		return x.Parties
+	}
+	return nil
+}
+
 type NestedObject struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	IsActive      bool                   `protobuf:"varint,1,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
@@ -117,16 +125,81 @@ func (x *NestedObject) GetIsActive() bool {
 	return false
 }
 
+type Party struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Role          int64                  `protobuf:"varint,2,opt,name=role,proto3" json:"role,omitempty"`
+	Age           int64                  `protobuf:"varint,3,opt,name=age,proto3" json:"age,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Party) Reset() {
+	*x = Party{}
+	mi := &file_test_v1_test_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Party) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Party) ProtoMessage() {}
+
+func (x *Party) ProtoReflect() protoreflect.Message {
+	mi := &file_test_v1_test_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Party.ProtoReflect.Descriptor instead.
+func (*Party) Descriptor() ([]byte, []int) {
+	return file_test_v1_test_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Party) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Party) GetRole() int64 {
+	if x != nil {
+		return x.Role
+	}
+	return 0
+}
+
+func (x *Party) GetAge() int64 {
+	if x != nil {
+		return x.Age
+	}
+	return 0
+}
+
 var File_test_v1_test_proto protoreflect.FileDescriptor
 
 const file_test_v1_test_proto_rawDesc = "" +
 	"\n" +
-	"\x12test/v1/test.proto\x12\atest.v1\"j\n" +
+	"\x12test/v1/test.proto\x12\atest.v1\"\x94\x01\n" +
 	"\x16TestEvaluatorContainer\x12\x14\n" +
 	"\x05score\x18\x01 \x01(\x03R\x05score\x12:\n" +
-	"\rnested_object\x18\x02 \x01(\v2\x15.test.v1.NestedObjectR\fnestedObject\"+\n" +
+	"\rnested_object\x18\x02 \x01(\v2\x15.test.v1.NestedObjectR\fnestedObject\x12(\n" +
+	"\aparties\x18\x03 \x03(\v2\x0e.test.v1.PartyR\aparties\"+\n" +
 	"\fNestedObject\x12\x1b\n" +
-	"\tis_active\x18\x01 \x01(\bR\bisActiveB\x98\x01\n" +
+	"\tis_active\x18\x01 \x01(\bR\bisActive\"A\n" +
+	"\x05Party\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\x03R\x04role\x12\x10\n" +
+	"\x03age\x18\x03 \x01(\x03R\x03ageB\x98\x01\n" +
 	"\vcom.test.v1B\tTestProtoP\x01ZAgithub.com/laenen-partners/evalengine/proto/gen/go/test/v1;testv1\xa2\x02\x03TXX\xaa\x02\aTest.V1\xca\x02\aTest\\V1\xe2\x02\x13Test\\V1\\GPBMetadata\xea\x02\bTest::V1b\x06proto3"
 
 var (
@@ -141,18 +214,20 @@ func file_test_v1_test_proto_rawDescGZIP() []byte {
 	return file_test_v1_test_proto_rawDescData
 }
 
-var file_test_v1_test_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_test_v1_test_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_test_v1_test_proto_goTypes = []any{
 	(*TestEvaluatorContainer)(nil), // 0: test.v1.TestEvaluatorContainer
 	(*NestedObject)(nil),           // 1: test.v1.NestedObject
+	(*Party)(nil),                  // 2: test.v1.Party
 }
 var file_test_v1_test_proto_depIdxs = []int32{
 	1, // 0: test.v1.TestEvaluatorContainer.nested_object:type_name -> test.v1.NestedObject
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: test.v1.TestEvaluatorContainer.parties:type_name -> test.v1.Party
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_test_v1_test_proto_init() }
@@ -166,7 +241,7 @@ func file_test_v1_test_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_test_v1_test_proto_rawDesc), len(file_test_v1_test_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
