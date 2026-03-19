@@ -15,10 +15,11 @@ type Issue struct {
 // EvalGraph holds the auto-calculated dependency graph derived from evaluator
 // reads/writes declarations.
 type EvalGraph struct {
-	producers map[FieldRef]string // field -> evaluator name that writes it
-	deps      map[string][]string // evaluator -> evaluators it depends on
-	order     []string            // topological execution order
-	issues    []Issue
+	producers  map[FieldRef]string // field -> evaluator name that writes it
+	deps       map[string][]string // evaluator -> evaluators it depends on
+	dependents map[string][]string // evaluator -> evaluators that depend on it (reverse of deps)
+	order      []string            // topological execution order
+	issues     []Issue
 }
 
 // BuildGraph derives the dependency graph from evaluator declarations.
@@ -26,8 +27,9 @@ type EvalGraph struct {
 // no producer dependency is created for them.
 func BuildGraph(evaluators []Evaluator) (*EvalGraph, error) {
 	g := &EvalGraph{
-		producers: make(map[FieldRef]string),
-		deps:      make(map[string][]string),
+		producers:  make(map[FieldRef]string),
+		deps:       make(map[string][]string),
+		dependents: make(map[string][]string),
 	}
 
 	// Phase 1: Register all producers (writes).
@@ -63,6 +65,7 @@ func BuildGraph(evaluators []Evaluator) (*EvalGraph, error) {
 				continue // self-reference
 			}
 			g.deps[eval.Name()] = append(g.deps[eval.Name()], producer)
+			g.dependents[producer] = append(g.dependents[producer], eval.Name())
 		}
 	}
 
@@ -120,6 +123,12 @@ func (g *EvalGraph) BlockedBy(name string, results map[string]Result) []string {
 		}
 	}
 	return blocked
+}
+
+// Blocks returns the names of evaluators that directly depend on the given
+// evaluator (reverse dependency lookup).
+func (g *EvalGraph) Blocks(name string) []string {
+	return g.dependents[name]
 }
 
 // ExecutionOrder returns the topologically sorted evaluator names.

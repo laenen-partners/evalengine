@@ -7,6 +7,7 @@ const (
 	StatusAllPassed      Status = "StatusAllPassed"      // every evaluation passed
 	StatusWorkflowActive Status = "StatusWorkflowActive" // a resolution workflow is running
 	StatusActionRequired Status = "StatusActionRequired" // a failing eval needs manual action
+	StatusPending        Status = "StatusPending"        // a failing eval is pending preconditions
 	StatusBlocked        Status = "StatusBlocked"        // a failing eval's dependencies aren't met
 )
 
@@ -18,6 +19,7 @@ func DeriveStatus(results []Result, graph *EvalGraph) Status {
 	hasRunningWorkflow := false
 	hasBlockedEval := false
 	hasActionRequired := false
+	hasPending := false
 
 	resultsMap := make(map[string]Result, len(results))
 	for _, r := range results {
@@ -32,6 +34,11 @@ func DeriveStatus(results []Result, graph *EvalGraph) Status {
 
 		if !graph.DependenciesMet(r.Name, resultsMap) {
 			hasBlockedEval = true
+			continue
+		}
+
+		if r.Pending {
+			hasPending = true
 			continue
 		}
 
@@ -50,6 +57,9 @@ func DeriveStatus(results []Result, graph *EvalGraph) Status {
 	}
 	if hasActionRequired {
 		return StatusActionRequired
+	}
+	if hasPending {
+		return StatusPending
 	}
 	if hasBlockedEval {
 		return StatusBlocked

@@ -19,19 +19,28 @@ func (f FieldRef) String() string {
 	return string(f)
 }
 
+// Precondition is a CEL expression that must evaluate to true before the main
+// expression runs. If it fails, the evaluator is marked Pending rather than Failed.
+type Precondition struct {
+	Expression  string `yaml:"expression"`
+	Description string `yaml:"description"`
+}
+
 // EvalDefinition is a single evaluator loaded from YAML.
 type EvalDefinition struct {
-	Name               string        `yaml:"name"`
-	Description        string        `yaml:"description"`
-	Expression         string        `yaml:"expression"`
-	Reads              []FieldRef    `yaml:"reads"`
-	Writes             FieldRef      `yaml:"writes"`
-	ResolutionWorkflow string        `yaml:"resolution_workflow"`
-	Resolution         string        `yaml:"resolution"`
-	Severity           string        `yaml:"severity"`
-	Category           string        `yaml:"category"`
-	CacheTTL           string        `yaml:"cache_ttl"`
-	CacheTTLDuration   time.Duration `yaml:"-"`
+	Name               string         `yaml:"name"`
+	Description        string         `yaml:"description"`
+	Expression         string         `yaml:"expression"`
+	Reads              []FieldRef     `yaml:"reads"`
+	Writes             FieldRef       `yaml:"writes"`
+	ResolutionWorkflow string         `yaml:"resolution_workflow"`
+	Resolution         string         `yaml:"resolution"`
+	Severity           string         `yaml:"severity"`
+	Category           string         `yaml:"category"`
+	FailureMode        string         `yaml:"failure_mode"`
+	Preconditions      []Precondition `yaml:"preconditions"`
+	CacheTTL           string         `yaml:"cache_ttl"`
+	CacheTTLDuration   time.Duration  `yaml:"-"`
 }
 
 // EvalConfig is the top-level YAML structure.

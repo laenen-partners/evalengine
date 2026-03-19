@@ -3,6 +3,7 @@ package evalengine
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -50,6 +51,48 @@ func NewEngine(cfg *EvalConfig, input proto.Message, opts ...cel.EnvOption) (*En
 			return nil, fmt.Errorf("create evaluator: %w", err)
 		}
 		evaluators = append(evaluators, e)
+	}
+
+	// Auto-derive reads from CEL AST. Two kinds:
+	// 1. input.* field paths — extracted from select chains (e.g. input.score,
+	//    input.nested_object.is_active). These feed the fingerprint cache.
+	// 2. Bare identifiers matching another evaluator's writes — these are
+	//    eval-to-eval dependencies for the graph.
+	// Explicit reads from YAML are preserved and deduplicated.
+	writesSet := make(map[string]bool, len(evaluators))
+	for _, ev := range evaluators {
+		writesSet[string(ev.Writes())] = true
+	}
+	for _, ev := range evaluators {
+		celEv := ev.(*CELEvaluator)
+		existingReads := make(map[FieldRef]bool, len(celEv.def.Reads))
+		for _, r := range celEv.def.Reads {
+			existingReads[r] = true
+		}
+
+		// Auto-derive input.* reads from select chains in the AST.
+		for _, path := range extractInputFieldPaths(celEv.ast) {
+			fr := FieldRef(path)
+			if !existingReads[fr] {
+				celEv.def.Reads = append(celEv.def.Reads, fr)
+				existingReads[fr] = true
+			}
+		}
+
+		// Auto-derive eval-to-eval reads from bare identifiers in the AST.
+		for _, ref := range extractIdentRefs(celEv.ast) {
+			if ref == string(celEv.def.Writes) {
+				continue // self-reference
+			}
+			if !writesSet[ref] {
+				continue // not a known evaluator output
+			}
+			fr := FieldRef(ref)
+			if !existingReads[fr] {
+				celEv.def.Reads = append(celEv.def.Reads, fr)
+				existingReads[fr] = true
+			}
+		}
 	}
 
 	graph, err := BuildGraph(evaluators)
@@ -173,16 +216,41 @@ func (e *Engine) execute(input proto.Message, cache map[string]CachedResult, now
 		if !e.graph.DependenciesMet(name, resultsMap) {
 			r := Result{
 				Name:               ev.Name(),
+				DisplayName:        ev.DisplayName(),
 				Passed:             false,
-				Resolution:         ev.(*CELEvaluator).def.Resolution,
-				ResolutionWorkflow: ev.(*CELEvaluator).def.ResolutionWorkflow,
-				Severity:           ev.(*CELEvaluator).def.Severity,
-				Category:           ev.(*CELEvaluator).def.Category,
+				Resolution:         ev.Resolution(),
+				ResolutionWorkflow: ev.ResolutionWorkflow(),
+				Severity:           ev.Severity(),
+				Category:           ev.Category(),
+				FailureMode:        ev.FailureMode(),
 			}
 			results = append(results, r)
 			resultsMap[name] = r
 			activation[name] = false
 			continue
+		}
+
+		// Precondition check: if any precondition fails, mark as pending.
+		if ev.HasPreconditions() {
+			failedPreconditions := ev.EvaluatePreconditions(activation)
+			if len(failedPreconditions) > 0 {
+				r := Result{
+					Name:                 ev.Name(),
+					DisplayName:          ev.DisplayName(),
+					Passed:               false,
+					Pending:              true,
+					PendingPreconditions: failedPreconditions,
+					Resolution:           ev.Resolution(),
+					ResolutionWorkflow:   ev.ResolutionWorkflow(),
+					Severity:             ev.Severity(),
+					Category:             ev.Category(),
+					FailureMode:          ev.FailureMode(),
+				}
+				results = append(results, r)
+				resultsMap[name] = r
+				activation[name] = false
+				continue
+			}
 		}
 
 		r := ev.Evaluate(activation)
@@ -202,6 +270,23 @@ func (e *Engine) Graph() *EvalGraph {
 // Evaluators returns all registered evaluators.
 func (e *Engine) Evaluators() []Evaluator {
 	return e.evaluators
+}
+
+// InputFields returns the input field paths referenced in the evaluator's CEL
+// expression, extracted from the compiled AST. Only returns paths rooted at
+// "input." (e.g. "input.score", "input.nested_object.is_active").
+func (e *Engine) InputFields(name string) []string {
+	for _, ev := range e.evaluators {
+		if ev.Name() != name {
+			continue
+		}
+		celEv, ok := ev.(*CELEvaluator)
+		if !ok {
+			return nil
+		}
+		return extractInputFieldPaths(celEv.ast)
+	}
+	return nil
 }
 
 // ToCachedResults converts results into a cache map with fingerprints
@@ -225,4 +310,9 @@ func (e *Engine) ToCachedResults(results []Result, input proto.Message, evaluate
 // DeriveStatus derives the overall status from evaluation results.
 func (e *Engine) DeriveStatus(results []Result) Status {
 	return DeriveStatus(results, e.graph)
+}
+
+// hasInputPrefix returns true if the string starts with "input.".
+func hasInputPrefix(s string) bool {
+	return strings.HasPrefix(s, "input.")
 }

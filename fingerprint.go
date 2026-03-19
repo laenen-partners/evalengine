@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -49,8 +50,9 @@ func ComputeFingerprint(reads []FieldRef, msg proto.Message) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// resolveField extracts a field value from the proto message given a field
-// reference like "input.contacts" or "email_verified".
+// resolveField extracts a field value from the proto message given a dotted
+// field reference like "input.nested_object.is_active" or "score". It walks
+// through nested messages following each segment of the dot-separated path.
 func resolveField(msg protoreflect.Message, ref string) any {
 	// Strip "input." prefix — eval reads declarations use "input.<field>" to
 	// reference fields on the proto message passed to Engine.Run.
@@ -59,29 +61,48 @@ func resolveField(msg protoreflect.Message, ref string) any {
 		name = name[6:]
 	}
 
-	desc := msg.Descriptor()
-	fd := desc.Fields().ByName(protoreflect.Name(name))
-	if fd == nil {
-		return nil
-	}
-
-	val := msg.Get(fd)
-
-	// For repeated fields (lists), serialize for stable hashing.
-	if fd.IsList() {
-		list := val.List()
-		var items []string
-		for i := 0; i < list.Len(); i++ {
-			item := list.Get(i)
-			if item.Message() != nil {
-				b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(item.Message().Interface())
-				items = append(items, string(b))
-			} else {
-				items = append(items, fmt.Sprintf("%v", item.Interface()))
-			}
+	parts := strings.Split(name, ".")
+	current := msg
+	for i, part := range parts {
+		desc := current.Descriptor()
+		fd := desc.Fields().ByName(protoreflect.Name(part))
+		if fd == nil {
+			return nil
 		}
-		return items
-	}
 
-	return val.Interface()
+		if i < len(parts)-1 {
+			// Intermediate segment — must be a message to descend into.
+			if fd.Kind() != protoreflect.MessageKind {
+				return nil
+			}
+			nested := current.Get(fd).Message()
+			if !nested.IsValid() {
+				return nil
+			}
+			current = nested
+			continue
+		}
+
+		// Leaf segment — extract the value.
+		val := current.Get(fd)
+
+		// For repeated fields (lists), serialize for stable hashing.
+		if fd.IsList() {
+			list := val.List()
+			var items []string
+			for j := 0; j < list.Len(); j++ {
+				item := list.Get(j)
+				if item.Message() != nil {
+					b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(item.Message().Interface())
+					items = append(items, string(b))
+				} else {
+					items = append(items, fmt.Sprintf("%v", item.Interface()))
+				}
+			}
+			return items
+		}
+
+		return val.Interface()
+	}
+	return nil
 }
