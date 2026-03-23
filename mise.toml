@@ -1,6 +1,6 @@
 [tools]
 go = "1.26.1"
-golangci-lint = "2.11.2"
+golangci-lint = "2.11.4"
 gotestsum = "1.13.0"
 osv-scanner = "2.3.3"
 task = "3.49.1"
