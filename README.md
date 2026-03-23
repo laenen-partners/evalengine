@@ -163,6 +163,66 @@ func getEngine(yamlBytes []byte, input proto.Message) (*evalengine.Engine, error
 | `preconditions` | no | List of `{expression, description}` — CEL bool guards before main expression |
 | `cache_ttl` | no | Go duration (e.g., `10m`, `1h`). Default: no caching |
 
+### Validation
+
+evalengine provides multiple ways to validate YAML configuration files.
+
+#### JSON Schema
+
+The repository includes a [JSON Schema](evalengine.schema.json) that defines the YAML format. Use it for editor autocomplete and CI validation.
+
+**VS Code** — add to your YAML file or workspace settings:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/laenen-partners/evalengine/main/evalengine.schema.json
+evaluations:
+  - name: ...
+```
+
+**CLI with [ajv-cli](https://github.com/ajv-validator/ajv-cli)**:
+
+```sh
+npm install -g ajv-cli ajv-formats
+ajv validate -s evalengine.schema.json -d evals.yaml
+```
+
+#### CLI tool
+
+Install the `evalvalidate` command to validate YAML files structurally (required fields, duplicate writes, cache_ttl format, precondition expressions):
+
+```sh
+go install github.com/laenen-partners/evalengine/cmd/evalvalidate@latest
+evalvalidate evals.yaml
+```
+
+Accepts multiple files:
+
+```sh
+evalvalidate evals/*.yaml
+```
+
+#### Go API
+
+**Structural validation** — no proto message needed, suitable for CI pipelines:
+
+```go
+cfg, err := evalengine.LoadDefinitionsFromFile("evals.yaml")
+if err != nil {
+    log.Fatal(err)
+}
+if err := evalengine.ValidateConfig(cfg); err != nil {
+    log.Fatal(err) // *evalengine.ValidationError with all issues
+}
+```
+
+**Full validation** — includes CEL compilation and dependency graph checks:
+
+```go
+if err := evalengine.Validate(cfg, &mypb.MyMessage{}); err != nil {
+    log.Fatal(err)
+}
+```
+
 ### Dependency graph
 
 The graph is auto-derived from CEL expressions and validated at engine creation:

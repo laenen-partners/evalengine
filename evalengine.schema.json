@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/laenen-partners/evalengine/evalengine.schema.json",
+  "title": "EvalEngine Configuration",
+  "description": "YAML configuration schema for evalengine — CEL-based evaluation rules with dependency resolution.",
+  "type": "object",
+  "required": ["evaluations"],
+  "additionalProperties": false,
+  "properties": {
+    "evaluations": {
+      "type": "array",
+      "description": "List of evaluation definitions.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evaluation"
+      }
+    }
+  },
+  "$defs": {
+    "evaluation": {
+      "type": "object",
+      "description": "A single evaluator that compiles a CEL expression and produces a boolean result.",
+      "required": ["name", "expression", "writes"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Evaluator identifier, exposed as Result.DisplayName."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this evaluator checks."
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CEL expression that must return a boolean. Access proto fields via 'input.<field>' and upstream evaluator results by their writes name."
+        },
+        "reads": {
+          "type": "array",
+          "description": "Dependencies — 'input.<field>' for proto fields or bare names for upstream evaluator outputs. Fully optional: auto-derived from the CEL AST.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "writes": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Output name — used as the result key, CEL variable for downstream evaluators, and graph node name. Must be unique across all evaluations."
+        },
+        "resolution_workflow": {
+          "type": "string",
+          "description": "Workflow ID to trigger when this evaluator fails."
+        },
+        "resolution": {
+          "type": "string",
+          "description": "Human-readable description of how to resolve a failure."
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level (e.g. 'blocking'). Passed through to Result."
+        },
+        "category": {
+          "type": "string",
+          "description": "Grouping category. Passed through to Result."
+        },
+        "failure_mode": {
+          "type": "string",
+          "description": "Opaque failure mode string (e.g. 'soft', 'hard'). Passed through to Result."
+        },
+        "preconditions": {
+          "type": "array",
+          "description": "Guards that must all return true before the main expression runs. Failures produce a Pending result instead of Failed.",
+          "items": {
+            "$ref": "#/$defs/precondition"
+          }
+        },
+        "cache_ttl": {
+          "type": "string",
+          "description": "Go duration string (e.g. '10m', '1h30s'). When set, cached results within this TTL are reused.",
+          "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)([0-9]+(ns|us|µs|ms|s|m|h))*$"
+        }
+      }
+    },
+    "precondition": {
+      "type": "object",
+      "description": "A CEL boolean guard evaluated before the main expression.",
+      "required": ["expression"],
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CEL expression that must return true for the main expression to run."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description shown when this precondition fails."
+        }
+      }
+    }
+  }
+}
